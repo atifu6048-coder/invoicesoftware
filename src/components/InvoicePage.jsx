@@ -184,19 +184,19 @@ export default function InvoicePage({
 
   // Live Instant Calculations
   // Total = sum of all rows Total (treating empty as 0)
-  const calculatedTotal = invoice.items.reduce((sum, item) => {
-    const q = parseFloat(item.qty) || 0;
-    const r = parseFloat(item.rate) || 0;
+  const calculatedTotal = (Array.isArray(invoice?.items) ? invoice.items : []).reduce((sum, item) => {
+    const q = parseFloat(item?.qty) || 0;
+    const r = parseFloat(item?.rate) || 0;
     return sum + (q * r);
   }, 0);
 
-  const discount = parseFloat(invoice.totals.discount) || 0;
-  const charges = parseFloat(invoice.totals.charges) || 0;
+  const discount = parseFloat(invoice?.totals?.discount) || 0;
+  const charges = parseFloat(invoice?.totals?.charges) || 0;
   // Grand Total = Total - Total Discount + Total Charges
   const grandTotal = calculatedTotal - discount + charges;
 
-  const prevBalance = parseFloat(invoice.totals.prevBalance) || 0;
-  const receivings = parseFloat(invoice.totals.receivings) || 0;
+  const prevBalance = parseFloat(invoice?.totals?.prevBalance) || 0;
+  const receivings = parseFloat(invoice?.totals?.receivings) || 0;
   // Final Balance = Grand Total + Previous Balance - Receivings
   const finalBalance = grandTotal + prevBalance - receivings;
 
@@ -372,13 +372,13 @@ export default function InvoicePage({
               </tr>
             </thead>
             <tbody>
-              {invoice.items.map((item, index) => {
-                const itemQty = item.qty !== '' ? item.qty : '';
-                const itemRate = item.rate !== '' ? item.rate : '';
-                const hasValue = item.qty !== '' || item.rate !== '';
+              {(Array.isArray(invoice?.items) ? invoice.items : []).map((item, index) => {
+                const itemQty = item?.qty !== '' && item?.qty !== undefined ? item.qty : '';
+                const itemRate = item?.rate !== '' && item?.rate !== undefined ? item.rate : '';
+                const hasValue = itemQty !== '' || itemRate !== '';
                 const rowTotalVal = hasValue 
-                  ? ((parseFloat(item.qty) || 0) * (parseFloat(item.rate) || 0)) 
-                  : (item.total !== '' ? parseFloat(item.total) || 0 : '');
+                  ? ((parseFloat(itemQty) || 0) * (parseFloat(itemRate) || 0)) 
+                  : (item?.total !== '' && item?.total !== undefined ? parseFloat(item.total) || 0 : '');
 
                 return (
                   <tr 

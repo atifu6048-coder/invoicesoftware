@@ -25,9 +25,10 @@ const getTodayDate = () => {
 };
 
 const getNextVoucherNo = (invoices = []) => {
-  if (!invoices || invoices.length === 0) return 'INV-0001';
+  if (!Array.isArray(invoices) || invoices.length === 0) return 'INV-0001';
   let highest = 0;
   invoices.forEach(inv => {
+    if (!inv) return;
     const match = String(inv.voucherNo || '').match(/\d+/);
     if (match) {
       const val = parseInt(match[0], 10);
@@ -79,19 +80,23 @@ export default function App() {
       const stored = localStorage.getItem('sale_invoices_storage');
       if (stored) {
         const parsed = JSON.parse(stored);
-        setSavedInvoices(parsed);
-        const nextVoucher = getNextVoucherNo(parsed);
-        setInvoice(prev => ({
-          ...prev,
-          voucherNo: nextVoucher
-        }));
-        // Auto-open sidebar if saved invoices exist on wide screens
-        if (parsed.length > 0 && window.innerWidth >= 1280) {
-          setIsSidebarOpen(true);
+        if (Array.isArray(parsed)) {
+          setSavedInvoices(parsed);
+          const nextVoucher = getNextVoucherNo(parsed);
+          setInvoice(prev => ({
+            ...prev,
+            voucherNo: nextVoucher
+          }));
+          if (parsed.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 1280) {
+            setIsSidebarOpen(true);
+          }
+        } else {
+          setSavedInvoices([]);
         }
       }
     } catch (e) {
       console.error('Error loading saved invoices:', e);
+      setSavedInvoices([]);
     }
   }, []);
 
@@ -114,36 +119,42 @@ export default function App() {
   // Extract unique customer suggestions from saved invoices
   const customerSuggestions = useMemo(() => {
     const map = new Map();
-    savedInvoices.forEach(inv => {
-      const name = inv.account?.customerName?.trim();
-      if (name && !map.has(name.toLowerCase())) {
-        map.set(name.toLowerCase(), {
-          customerName: name,
-          address: inv.account?.address || '',
-          city: inv.account?.city || '',
-          contactInf: inv.account?.contactInf || ''
-        });
-      }
-    });
+    if (Array.isArray(savedInvoices)) {
+      savedInvoices.forEach(inv => {
+        const name = inv?.account?.customerName?.trim();
+        if (name && !map.has(name.toLowerCase())) {
+          map.set(name.toLowerCase(), {
+            customerName: name,
+            address: inv?.account?.address || '',
+            city: inv?.account?.city || '',
+            contactInf: inv?.account?.contactInf || ''
+          });
+        }
+      });
+    }
     return Array.from(map.values());
   }, [savedInvoices]);
 
   // Extract unique item suggestions from saved invoices
   const itemSuggestions = useMemo(() => {
     const map = new Map();
-    savedInvoices.forEach(inv => {
-      inv.items?.forEach(it => {
-        const part = it.partNumber?.trim();
-        if (part && !map.has(part.toLowerCase())) {
-          map.set(part.toLowerCase(), {
-            partNumber: part,
-            description: it.description || '',
-            brand: it.brand || '',
-            rate: it.rate || ''
+    if (Array.isArray(savedInvoices)) {
+      savedInvoices.forEach(inv => {
+        if (Array.isArray(inv?.items)) {
+          inv.items.forEach(it => {
+            const part = it?.partNumber?.trim();
+            if (part && !map.has(part.toLowerCase())) {
+              map.set(part.toLowerCase(), {
+                partNumber: part,
+                description: it?.description || '',
+                brand: it?.brand || '',
+                rate: it?.rate || ''
+              });
+            }
           });
         }
       });
-    });
+    }
     return Array.from(map.values());
   }, [savedInvoices]);
 
@@ -152,31 +163,32 @@ export default function App() {
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  // "New Invoice" button: clears all fields, increments Voucher #, sets date to today, resets table to 7 empty rows
+  // "New Invoice" button
   const handleNewInvoice = () => {
     const nextVoucher = getNextVoucherNo(savedInvoices);
     setInvoice(createEmptyInvoice(nextVoucher));
     showToast(`Created new invoice ${nextVoucher}`);
   };
 
-  // "Clear" button: clears only current invoice without deleting saved invoices
+  // "Clear" button
   const handleClearInvoice = () => {
     setInvoice(prev => ({
-      ...createEmptyInvoice(prev.voucherNo),
+      ...createEmptyInvoice(prev?.voucherNo || 'INV-0001'),
       date: getTodayDate()
     }));
     showToast('Current invoice cleared');
   };
 
-  // "Save Invoice": save full invoice in LocalStorage, show "Invoice Saved", and increase Voucher # for next invoice
+  // "Save Invoice" button
   const handleSaveInvoice = () => {
-    const newEntry = {
+    const safeInvoice = {
       ...invoice,
-      id: invoice.id || Date.now().toString(),
+      id: invoice?.id || Date.now().toString(),
       timestamp: new Date().toISOString()
     };
 
-    const updated = [newEntry, ...savedInvoices.filter(i => i.voucherNo !== invoice.voucherNo)];
+    const currentList = Array.isArray(savedInvoices) ? savedInvoices : [];
+    const updated = [safeInvoice, ...currentList.filter(i => i?.voucherNo !== safeInvoice.voucherNo)];
     setSavedInvoices(updated);
 
     try {
@@ -187,16 +199,16 @@ export default function App() {
       return;
     }
 
-    // After saving, the Voucher # for next invoice must increase automatically
+    // Auto-advance Voucher # for next invoice
     const nextVoucher = getNextVoucherNo(updated);
     setInvoice(createEmptyInvoice(nextVoucher));
-    // Make sure sidebar is opened to show the newly saved invoice
     setIsSidebarOpen(true);
   };
 
   // Delete saved invoice with confirmation
   const handleDeleteSaved = (id) => {
-    const updated = savedInvoices.filter(item => item.id !== id);
+    const currentList = Array.isArray(savedInvoices) ? savedInvoices : [];
+    const updated = currentList.filter(item => item?.id !== id);
     setSavedInvoices(updated);
     try {
       localStorage.setItem('sale_invoices_storage', JSON.stringify(updated));
@@ -206,15 +218,40 @@ export default function App() {
     }
   };
 
-  // Load saved invoice back into main form for viewing and editing
+  // Load saved invoice back into main form
   const handleLoadInvoice = (loadedInv) => {
-    setInvoice(loadedInv);
+    if (!loadedInv) return;
+    setInvoice({
+      ...createEmptyInvoice(),
+      ...loadedInv,
+      account: { ...loadedInv.account },
+      voucher: { ...loadedInv.voucher },
+      items: Array.isArray(loadedInv.items) ? loadedInv.items : createDefaultRows(7),
+      transport: { ...loadedInv.transport },
+      totals: { ...loadedInv.totals }
+    });
     showToast(`Loaded Invoice #${loadedInv.voucherNo}`);
+  };
+
+  const handleImportInvoices = (imported) => {
+    if (!Array.isArray(imported)) return;
+    setSavedInvoices(imported);
+    try {
+      localStorage.setItem('sale_invoices_storage', JSON.stringify(imported));
+      const nextVoucher = getNextVoucherNo(imported);
+      setInvoice(prev => ({
+        ...prev,
+        voucherNo: nextVoucher
+      }));
+      showToast(`Imported ${imported.length} invoices successfully!`);
+    } catch (e) {
+      showToast('Error importing invoices');
+    }
   };
 
   const handleLoadSample = () => {
     setInvoice({
-      voucherNo: invoice.voucherNo || 'INV-0001',
+      voucherNo: invoice?.voucherNo || 'INV-0001',
       date: getTodayDate(),
       account: {
         customerName: 'Al-Madina Auto Spares',
@@ -262,21 +299,24 @@ export default function App() {
   };
 
   const handleAddRow = () => {
-    setInvoice(prev => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        {
-          sr: prev.items.length + 1,
-          partNumber: '',
-          description: '',
-          brand: '',
-          qty: '',
-          rate: '',
-          total: ''
-        }
-      ]
-    }));
+    setInvoice(prev => {
+      const currentItems = Array.isArray(prev?.items) ? prev.items : [];
+      return {
+        ...prev,
+        items: [
+          ...currentItems,
+          {
+            sr: currentItems.length + 1,
+            partNumber: '',
+            description: '',
+            brand: '',
+            qty: '',
+            rate: '',
+            total: ''
+          }
+        ]
+      };
+    });
   };
 
   const handlePrint = () => {
@@ -296,7 +336,7 @@ export default function App() {
         onLoadSample={handleLoadSample}
         onResetRows={handleResetRows}
         onAddRow={handleAddRow}
-        savedCount={savedInvoices.length}
+        savedCount={Array.isArray(savedInvoices) ? savedInvoices.length : 0}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -304,11 +344,11 @@ export default function App() {
         <SavedInvoicesSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
-          savedInvoices={savedInvoices}
+          savedInvoices={Array.isArray(savedInvoices) ? savedInvoices : []}
           onLoadInvoice={handleLoadInvoice}
           onDeleteInvoice={handleDeleteSaved}
           onImportInvoices={handleImportInvoices}
-          currentVoucherNo={invoice.voucherNo}
+          currentVoucherNo={invoice?.voucherNo}
         />
 
         {/* Main Content: Printable A4 Invoice Sheet */}
