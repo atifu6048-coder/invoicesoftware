@@ -19,6 +19,15 @@
   border: 1px solid #000000;
 }
 
+/* Hide scrollbar for clean mobile horizontal swipe navigation */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @media print {
   @page {
     size: A4 portrait;

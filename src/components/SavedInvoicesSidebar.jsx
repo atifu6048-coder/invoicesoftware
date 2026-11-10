@@ -77,24 +77,36 @@ export default function SavedInvoicesSidebar({
   const handleEdit = (e, inv) => {
     e.stopPropagation();
     onLoadInvoice(inv);
+    // On mobile screens, auto-close sidebar on load
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      onClose();
+    }
   };
 
   // Calculate grand total of an invoice
   const getInvoiceGrandTotal = (inv) => {
-    const itemsTotal = (inv.items || []).reduce((sum, item) => {
-      const q = parseFloat(item.qty) || 0;
-      const r = parseFloat(item.rate) || 0;
+    const itemsTotal = (inv?.items || []).reduce((sum, item) => {
+      const q = parseFloat(item?.qty) || 0;
+      const r = parseFloat(item?.rate) || 0;
       return sum + (q * r);
     }, 0);
-    const discount = parseFloat(inv.totals?.discount) || 0;
-    const charges = parseFloat(inv.totals?.charges) || 0;
+    const discount = parseFloat(inv?.totals?.discount) || 0;
+    const charges = parseFloat(inv?.totals?.charges) || 0;
     return itemsTotal - discount + charges;
   };
 
   if (!isOpen) return null;
 
   return (
-    <aside className="no-print fixed inset-y-0 left-0 z-40 w-80 sm:w-96 bg-white border-r border-slate-300 shadow-2xl flex flex-col pt-14 sm:pt-0 animate-in slide-in-from-left duration-200">
+    <>
+      {/* Mobile Backdrop Overlay */}
+      <div 
+        onClick={onClose}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden no-print animate-in fade-in duration-200"
+        title="Click to close"
+      />
+
+      <aside className="no-print fixed inset-y-0 left-0 z-50 w-[88vw] max-w-[360px] sm:w-96 bg-white border-r border-slate-300 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
       {/* Sidebar Header */}
       <div className="bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800">
         <div className="flex items-center space-x-2">
@@ -169,7 +181,7 @@ export default function SavedInvoicesSidebar({
             return (
               <div
                 key={inv.id}
-                onClick={() => onLoadInvoice(inv)}
+                onClick={(e) => handleEdit(e, inv)}
                 className={`group relative p-3 rounded-lg border transition-all cursor-pointer ${
                   isCurrent 
                     ? 'bg-blue-50/70 border-blue-400 ring-1 ring-blue-400 shadow-sm' 
@@ -288,6 +300,7 @@ export default function SavedInvoicesSidebar({
         </div>
       </div>
     </aside>
+    </>
   );
 }
 
