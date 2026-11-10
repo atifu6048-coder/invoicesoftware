@@ -86,3 +86,4 @@ npm run preview
 - **Vite 6**
 - **Tailwind CSS 3**
 - **Lucide React** (icons)
+
